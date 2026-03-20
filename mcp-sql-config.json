@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sql-query-tools": {
+      "command": "node",
+      "args": [
+        "ABSOLUTE_PATH/SQLQueryTools/mcp-server.js"
+      ]
+    }
+  }
+}

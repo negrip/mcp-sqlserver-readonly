@@ -1,0 +1,27 @@
+{
+  "name": "sql-query-tools",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for connecting to SQL Server in readonly mode",
+  "main": "mcp-server.js",
+  "scripts": {
+    "start": "node mcp-server.js",
+    "dev": "node --watch mcp-server.js",
+    "test-connection": "node tests/test-connection.js",
+    "test-schema": "node tests/test-schema.js",
+    "test-table": "node tests/test-table.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "mssql": "^11.0.1",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "mcp",
+    "sql",
+    "sqlserver",
+    "database"
+  ],
+  "author": "--Pablon-- (https://github.com/negrip)",
+  "license": "MIT"
+}
