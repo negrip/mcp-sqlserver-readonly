@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import sql from 'mssql';
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,10 +6,10 @@ import dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cargar .env
-dotenv.config({ path: path.join(__dirname, ".env") });
+// Load .env from project root
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-// ⚙️ Config SQL igual que en mcp-sql-only.js
+// SQL config — mirrors mcp-server.js
 const sqlConfig = {
   server: process.env.SQL_SERVER || 'localhost',
   database: process.env.SQL_DATABASE || 'master',
@@ -19,17 +18,21 @@ const sqlConfig = {
   options: {
     encrypt: (process.env.SQL_ENCRYPT || 'false').toLowerCase() === 'true',
     trustServerCertificate: (process.env.SQL_TRUST_SERVER_CERT || 'true').toLowerCase() === 'true',
-    instanceName: process.env.SQL_INSTANCE || 'SQLEXPRESS'
+    instanceName: process.env.SQL_INSTANCE || undefined
   },
   pool: { max: 5, min: 0, idleTimeoutMillis: 30000 }
 };
 
-// ⚠️ Cambiá acá la tabla que quieras probar
-const TABLE_TO_TEST = "dbo.CO_CONCEPTO";
+const TABLE_TO_TEST = process.argv[2];
+if (!TABLE_TO_TEST) {
+  console.error('Usage:   node tests/test-table.js <schema.TableName>');
+  console.error('Example: node tests/test-table.js dbo.Employees');
+  process.exit(1);
+}
 
 async function main() {
   try {
-    console.log(`Describiendo columnas de: ${TABLE_TO_TEST}`);
+    console.log(`Describing columns for: ${TABLE_TO_TEST}`);
     const pool = await sql.connect(sqlConfig);
 
     const [schema, name] = TABLE_TO_TEST.includes(".")

@@ -9,7 +9,7 @@
     "dev": "node --watch mcp-server.js",
     "test-connection": "node tests/test-connection.js",
     "test-schema": "node tests/test-schema.js",
-    "test-table": "node tests/test-table.js"
+    "test-table": "node tests/test-table.js -- <schema.TableName>"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.0",

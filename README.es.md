@@ -9,6 +9,8 @@ Permite que cualquier cliente MCP (Claude Desktop, GEAI, Cursor, etc.) explore e
 
 ### 1. Instalar dependencias
 
+Abrí una terminal dentro de la carpeta del proyecto y ejecutá:
+
 ```bash
 npm install
 ```
@@ -18,15 +20,26 @@ npm install
 El archivo `.env` ya existe en la carpeta con las variables listas. Completalo con los datos de tu servidor:
 
 ```env
+# Conexión
 SQL_SERVER=mi_servidor
 SQL_DATABASE=MiBase
 SQL_USER=mi_usuario
 SQL_PASSWORD=mi_password
 SQL_INSTANCE=              # dejar vacío si no usás instancia nombrada
-SQL_ENCRYPT=false
+SQL_ENCRYPT=false          # poner true para Azure SQL o servidores cloud
 SQL_TRUST_SERVER_CERT=true
-ALLOWED_TABLES=            # dejar vacío para ver todas las tablas
-MAX_ROWS=200
+
+# Seguridad / filtros
+ALLOWED_TABLES=            # dejar vacío para ver todas las tablas (soporta wildcards: dbo.prefijo_*)
+MAX_ROWS=200               # máximo de filas por consulta
+
+# Performance
+SQL_QUERY_TIMEOUT=30000    # timeout de consultas en milisegundos (default: 30s)
+SCHEMA_CACHE_TTL_MINUTES=5 # tiempo de cache del esquema en memoria (default: 5 min)
+
+# Audit log
+AUDIT_LOG=false            # poner true para activar el log de auditoría
+AUDIT_LOG_DIR=./logs       # carpeta donde se escriben los archivos de log diarios
 ```
 
 > Si `SQL_ENCRYPT` es `true` (servidores cloud), asegurate de tener `SQL_TRUST_SERVER_CERT=true` también.
@@ -90,17 +103,85 @@ Apuntá el cliente al archivo `mcp-sql-config.json` incluido en esta carpeta, o 
 
 | Tool | Descripción |
 |------|-------------|
-| `db_test_connection` | Verifica la conexión y devuelve la versión del servidor |
-| `db_describe_schema` | Lista las tablas y vistas con su cantidad de columnas |
-| `db_describe_table` | Detalla columnas (nombre, tipo, nullable) de una tabla o vista |
-| `db_run_readonly` | Ejecuta un SELECT (inyecta TOP automáticamente si falta) |
+| `db_test_connection` | Verifica la conexión y devuelve la versión del servidor y la fecha/hora actual |
+| `db_describe_schema` | Lista todas las tablas y vistas con su cantidad de columnas (resultado cacheado) |
+| `db_describe_table` | Detalla columnas (nombre, tipo, nullable) de una tabla o vista específica |
+| `db_sample_data` | Devuelve 5 filas de ejemplo de una tabla — útil para que el agente entienda los datos |
+| `db_run_readonly` | Ejecuta un SELECT (inyecta TOP automáticamente si no hay límite de filas) |
 | `db_list_databases` | Devuelve información de la base de datos conectada |
+
+---
+
+## Referencia de configuración
+
+### Seguridad — `ALLOWED_TABLES`
+
+Controla qué tablas y vistas son accesibles. Dejar vacío expone todo.
+
+```env
+ALLOWED_TABLES=dbo.Pedidos,dbo.Clientes,dbo.Factura_*
+```
+
+Se soportan wildcards al final del nombre (`dbo.prefijo_*`). El filtro se aplica en `db_describe_schema`, `db_describe_table` y `db_run_readonly`.
+
+### Límite de filas — `MAX_ROWS`
+
+Máximo de filas devueltas por cualquier consulta `SELECT`. El servidor inyecta `TOP N` automáticamente si la consulta no incluye límite.
+
+```env
+MAX_ROWS=200
+```
+
+### Timeout de consultas — `SQL_QUERY_TIMEOUT`
+
+Si una consulta tarda más de este valor (en milisegundos), se cancela automáticamente. Evita que consultas pesadas bloqueen el servidor.
+
+```env
+SQL_QUERY_TIMEOUT=30000   # 30 segundos
+```
+
+### Cache del esquema — `SCHEMA_CACHE_TTL_MINUTES`
+
+Los resultados de `db_describe_schema` se guardan en memoria para evitar múltiples roundtrips a la base de datos. Al vencer el TTL, la siguiente llamada refresca el cache.
+
+```env
+SCHEMA_CACHE_TTL_MINUTES=5   # cache dura 5 minutos
+```
+
+Poner `0` desactiva el cache (siempre consulta la base de datos).
+
+### Audit log — `AUDIT_LOG`
+
+Cuando está activo, cada llamada a un tool queda registrada en un archivo de log diario dentro de `AUDIT_LOG_DIR`. Cada entrada incluye timestamp, nombre del tool, query o tabla, resultado y tiempo de ejecución.
+
+```env
+AUDIT_LOG=true
+AUDIT_LOG_DIR=./logs
+```
+
+Formato del log:
+```
+[2026-03-27T14:32:11Z] db_run_readonly | SELECT TOP 10 * FROM dbo.Pedidos | rows:10 | 45ms
+[2026-03-27T14:32:20Z] db_run_readonly | SELECT * FROM dbo.Usuarios | BLOCKED: table not allowed | 0ms
+```
+
+Se crea un archivo por día: `logs/audit-YYYY-MM-DD.log`. Las consultas bloqueadas también quedan registradas.
 
 ---
 
 ## Uso desde el chat
 
 Una vez activo el MCP, podés preguntar en lenguaje natural sobre los datos de tu base de datos. El agente va a usar los tools automáticamente para explorar el esquema y responder.
+
+---
+
+## Scripts de prueba
+
+```bash
+npm run test-connection                       # verificar conectividad y listar tablas disponibles
+npm run test-schema                           # listar tablas y vistas con cantidad de columnas
+node tests/test-table.js dbo.Empleados       # describir las columnas de una tabla específica
+```
 
 ---
 
@@ -142,7 +223,7 @@ SQLQueryTools/
 └── tests/
     ├── test-connection.js
     ├── test-schema.js
-    ├── test-table.js
+    ├── test-table.js      # Uso: node tests/test-table.js dbo.Empleados
     └── test-examples.js
 ```
 
